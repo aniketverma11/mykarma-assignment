@@ -88,27 +88,48 @@ When comparing phones, ALWAYS use this table format:
         system_prompt = self._get_system_prompt(search_context)
         
         try:
-            # Use streaming with Gemini
-            response = self.client.models.generate_content_stream(
-                model="gemini-2.0-flash",
-                contents=query,
-                config=types.GenerateContentConfig(
-                    system_instruction=system_prompt,
-                    temperature=0.4
+            # Try with the latest fast model first
+            try:
+                response = self.client.models.generate_content_stream(
+                    model="gemini-2.0-flash",
+                    contents=query,
+                    config=types.GenerateContentConfig(
+                        system_instruction=system_prompt,
+                        temperature=0.4
+                    )
                 )
-            )
-            
-            # Stream the response chunks
-            for chunk in response:
-                if chunk.text:
-                    yield chunk.text
-                    
+                for chunk in response:
+                    if chunk.text:
+                        yield chunk.text
+
+            except Exception as e:
+                # Check for rate limit (429) or Resource Exhausted errors
+                error_str = str(e)
+                if "429" in error_str or "RESOURCE_EXHAUSTED" in error_str:
+                    print(f"[TechScout] Gemini 2.0 Rate Limit hit. Falling back to stable flash...")
+                    # Fallback to stable model alias
+                    response = self.client.models.generate_content_stream(
+                        model="gemini-flash-latest",
+                        contents=query,
+                        config=types.GenerateContentConfig(
+                            system_instruction=system_prompt,
+                            temperature=0.4
+                        )
+                    )
+                    for chunk in response:
+                        if chunk.text:
+                            yield chunk.text
+                else:
+                    raise e # Re-raise other errors to outer block
+
         except Exception as e:
             error_msg = str(e)
             print(f"[TechScout] LLM Error: {error_msg}")
             
-            # Fallback error message
-            yield f"I apologize, but I'm having trouble processing your request. Please try again in a moment."
+            if "429" in error_msg or "RESOURCE_EXHAUSTED" in error_msg:
+                 yield "⚠️ **System Overload**: I'm receiving too many requests right now. Please wait 30 seconds and try again."
+            else:
+                yield f"I apologize, but I'm having trouble processing your request. Please try again in a moment.\n\n*Error: {error_msg[:50]}...*"
     
     def process_query(self, query: str) -> Dict[str, Any]:
         """

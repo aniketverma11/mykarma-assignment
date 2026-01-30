@@ -1,64 +1,190 @@
+# TechScout AI - Mobile Shopping Assistant
 
-# 📱 MobileGenius - AI Shopping Agent
+An intelligent AI-powered mobile phone shopping assistant built with FastAPI, React, and Google Gemini AI.
 
-An intelligent shopping chat agent helping you discover, compare, and buy mobile phones. Built with FastAPI (Backend) and React (Frontend).
+## Features
 
-## 🚀 Features
-- **Natural Language Search**: Ask for phones by budget ("under 30k"), brand ("Samsung phones"), or features ("best camera phone").
-- **Smart Comparison**: Compare specs of multiple models side-by-side (e.g., "Compare Pixel 8a vs OnePlus 12R").
-- **Product Details**: Get in-depth specs for specific models.
-- **Safety & Robustness**: Resilient to adversarial prompts and avoids hallucinating non-existent phones.
-- **Premium UI**: Glassmorphism design with a dark-themed interface.
+- 🤖 **AI-Powered Recommendations**: Uses Google Gemini 2.0 Flash for intelligent product suggestions
+- 🔍 **Live Web Search**: Integrates FireCrawl API for real-time price and spec updates
+- 💬 **Streaming Responses**: Real-time WebSocket communication with markdown support
+- 📊 **Comparison Tables**: Beautiful markdown-rendered comparison tables
+- 🎨 **Modern UI**: Premium dark theme with glassmorphism effects
 
-## 🛠️ Tech Stack
-- **Frontend**: React, Vite, Vanilla CSS (Modules)
-- **Backend**: FastAPI, Uvicorn, Python 3.12
-- **Data**: In-memory mock database with realistic phone specifications (extensible to SQL/NoSQL).
-- **AI/Logic**: Google Gemini API (`gemini-flash-latest`) for intent understanding and natural language generation.
+## Tech Stack
 
-## 🏗️ Architecture
-The system consists of two decoupled services:
-1.  **FastAPI Backend**:
-    -   `ChatEngine`: interactions with Google Gemini API to parse intents and generate responses.
-    -   `MockDB`: A JSON-like structure storing phone data context injected into the LLM system prompt.
-    -   API Endpoints: Exposes `/chat` for interaction.
-2.  **React Frontend**:
-    -   Communicates with the backend via REST API.
-    -   Renders different message types: Text bubbles, Product Carousels, Comparison Tables.
+**Backend:**
+- FastAPI (Python 3.12+)
+- Google Gemini AI (2.0 Flash with fallback to Flash Latest)
+- FireCrawl API for web scraping
+- WebSockets for real-time communication
 
-## 🏃 Setup Instructions
+**Frontend:**
+- React 18
+- Vite
+- React Markdown
+- CSS Modules
+
+## Setup
 
 ### Prerequisites
-- Node.js & npm
-- Python 3.8+
+- Python 3.12+
+- Node.js 18+
+- Google Gemini API Key
+- FireCrawl API Key
 
-### 1. Backend Setup
+### Installation
+
+1. **Clone the repository**
+```bash
+git clone <your-repo-url>
+cd assignment-mykarma
+```
+
+2. **Backend Setup**
 ```bash
 cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload
 ```
-*Server runs at `http://localhost:8000`*
 
-### 2. Frontend Setup
+3. **Configure Environment Variables**
+Create `backend/.env`:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+FIRECRAWL_API_KEY=your_firecrawl_api_key_here
+```
+
+4. **Frontend Setup**
 ```bash
 cd frontend
 npm install
+npm run build
+```
+
+## Running the Application
+
+### Production Mode (Single Server)
+The FastAPI server serves both the API and the built frontend:
+
+```bash
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Then open: **http://localhost:8000**
+
+### Development Mode (Separate Servers)
+For development with hot reload:
+
+**Terminal 1 - Backend:**
+```bash
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**Terminal 2 - Frontend:**
+```bash
+cd frontend
 npm run dev
 ```
-*Client runs at `http://localhost:5173`*
 
-## 🛡️ Prompt Design & Safety Strategy
--   **Intent Guardrails**: The agent uses strict intent classification to route queries. If a query falls outside the "shopping" domain or matches adversarial patterns (e.g., "reveal system prompt"), it is rejected.
--   **No Hallucinations**: Responses are strictly grounded in the structured database. The agent does not generate specs; it retrieves them.
--   **Adversarial Defense**: A blacklist of keywords (`ignore rules`, `system prompt`) prevents prompt injection attacks.
+Then open: **http://localhost:5173**
 
-## ⚠️ Known Limitations
--   **Mock Data**: The database is static and limited to ~10 popular models for demonstration.
--   **Context**: Multi-turn conversation context is limited in the current implementation (stateless HTTP requests, though the frontend tracks history).
--   **Complex Queries**: Extremely complex nested queries might default to keyword search.
+## Project Structure
 
----
-*Created by Aniket for AI/ML Engineer Assignment*
+```
+assignment-mykarma/
+├── backend/
+│   ├── app/
+│   │   ├── main.py           # FastAPI app + static file serving
+│   │   ├── chat_engine.py    # Gemini AI integration
+│   │   ├── firecrawl.py      # Web search integration
+│   │   ├── data.py           # Mock phone database
+│   │   └── models.py         # Pydantic models
+│   ├── .env                  # API keys (not in git)
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx           # Main React component
+│   │   ├── components/
+│   │   │   └── Message.jsx   # Markdown message renderer
+│   │   └── App.module.css
+│   ├── dist/                 # Production build
+│   └── package.json
+└── README.md
+```
+
+## API Endpoints
+
+- `GET /` - Serves the frontend application
+- `GET /api/health` - Health check endpoint
+- `WebSocket /ws` - Real-time chat WebSocket
+
+## WebSocket Protocol
+
+**Client → Server:**
+```json
+{
+  "message": "Compare iPhone 15 vs Samsung S24"
+}
+```
+
+**Server → Client (Streaming):**
+```json
+{"type": "stream_start", "content": ""}
+{"type": "stream_chunk", "content": "Here's a comparison..."}
+{"type": "stream_chunk", "content": "\n\n| Feature | ..."}
+{"type": "stream_end", "content": "<full_response>"}
+```
+
+## Features in Detail
+
+### AI Model Fallback
+- Primary: `gemini-2.0-flash` (fast, latest)
+- Fallback: `gemini-flash-latest` (stable, when rate limited)
+
+### Markdown Support
+The AI can generate:
+- **Tables** for comparisons
+- **Bold** text for emphasis
+- **Lists** for features
+- **Headers** for organization
+
+### Error Handling
+- Graceful rate limit handling
+- Automatic model fallback
+- User-friendly error messages
+
+## Deployment
+
+### Docker (Optional)
+```dockerfile
+# Coming soon
+```
+
+### Traditional Deployment
+1. Build frontend: `cd frontend && npm run build`
+2. Install backend deps: `cd backend && pip install -r requirements.txt`
+3. Set environment variables
+4. Run: `uvicorn app.main:app --host 0.0.0.0 --port 8000`
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+MIT License - see LICENSE file for details
+
+## Acknowledgments
+
+- Google Gemini AI for the LLM
+- FireCrawl for web scraping capabilities
+- FastAPI and React communities

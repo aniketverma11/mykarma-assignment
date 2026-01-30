@@ -1,18 +1,22 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 from app.chat_engine import ChatEngine
 import uvicorn
 import asyncio
+import os
 
 load_dotenv()
 
-app = FastAPI(title="TechScout AI API")
+app = FastAPI(title="TechScout AI")
 
 # CORS configuration
 origins = [
     "http://localhost:5173",
     "http://localhost:3000",
+    "http://localhost:8000",
     "*"
 ]
 
@@ -26,9 +30,22 @@ app.add_middleware(
 
 chat_engine = ChatEngine()
 
+# Mount static files from frontend build
+static_path = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+if os.path.exists(static_path):
+    app.mount("/assets", StaticFiles(directory=os.path.join(static_path, "assets")), name="assets")
+
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to TechScout AI API", "status": "online"}
+    """Serve the frontend index.html"""
+    index_path = os.path.join(static_path, "index.html")
+    if os.path.exists(index_path):
+        return FileResponse(index_path)
+    return {"message": "TechScout AI API", "status": "online"}
+
+@app.get("/api/health")
+def health_check():
+    return {"status": "healthy", "service": "TechScout AI"}
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):

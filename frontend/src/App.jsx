@@ -32,7 +32,12 @@ function App() {
     let reconnectInterval = null;
 
     const connectWS = () => {
-      ws = new WebSocket('ws://localhost:8000/ws');
+      // Use relative WebSocket URL for production
+      const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsHost = window.location.host;
+      const wsUrl = `${wsProtocol}//${wsHost}/ws`;
+
+      ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
